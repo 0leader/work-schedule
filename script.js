@@ -24,11 +24,21 @@ const scheduleData = {
 
 // Function to calculate the current week in the 4-week cycle
 function getCurrentWeek() {
-    const startDate = new Date("2024-09-14"); // Updated start date
+    const startDate = new Date("2024-01-01T00:00:00+02:00"); // Start date (Week 1) in CEST
     const today = new Date();
+    
+    // Calculate the difference in days
     const diffInTime = today - startDate;
-    const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24));
-    const currentWeek = Math.floor(diffInDays / 7) % 4; // Modulo 4 to get current week in the cycle
+    const diffInDays = Math.floor(diffInTime / (1000 * 60 * 60 * 24));
+    const weeksSinceStart = Math.floor(diffInDays / 7);
+    const currentWeek = weeksSinceStart % 4; // Modulo 4 to get current week in the cycle
+
+    // Debugging information
+    console.log("Start Date:", startDate);
+    console.log("Today:", today);
+    console.log("Days since start:", diffInDays);
+    console.log("Weeks since start:", weeksSinceStart);
+    console.log("Current Week (0-based):", currentWeek);
 
     return currentWeek;
 }
@@ -36,20 +46,12 @@ function getCurrentWeek() {
 // Function to get the current calendar week number (ISO 8601 standard)
 function getCurrentCalendarWeek() {
     const now = new Date();
-    const januaryFourth = new Date(now.getFullYear(), 0, 4); // Jan 4th is always in week 1 according to ISO 8601
-    const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + 1;
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
     
-    // ISO 8601: Week starts on Monday (getDay() returns 0 for Sunday)
-    const dayOfWeek = (now.getDay() + 6) % 7 + 1; // Get day of the week (Monday=1, Sunday=7)
-
-    const jan4WeekDay = (januaryFourth.getDay() + 6) % 7 + 1;
-    const firstWeekOffset = jan4WeekDay <= 4 ? -jan4WeekDay + 1 : 7 - jan4WeekDay + 1;
-
-    const isoWeekNumber = Math.ceil((dayOfYear + firstWeekOffset) / 7);
-    
-    return isoWeekNumber;
+    return weekNumber;
 }
-
 
 // Function to display the schedule for a specific week
 function displayWeekSchedule(weekIndex, weekElementId, weekName) {
@@ -167,4 +169,14 @@ window.onload = function() {
     
     // Initialize dataCheck container
     document.getElementById('dataCheck').style.display = 'none';
+
+    // Update the display every day at midnight
+    setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === 0 && now.getMinutes() === 0) {
+            displayFullSchedule();
+            displayCalendarWeek();
+            checkWorkThisWeek();
+        }
+    }, 60000); // Check every minute
 };
