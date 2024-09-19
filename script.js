@@ -19,8 +19,25 @@ const scheduleData = {
             Saturday: { mohamed: "11:15-17:15", emma: "09:45-15:00" },
             Sunday: { mohamed: "12:00-15:00", emma: "09:45-17:15" }
         }
-    ]
+    ],
+    extraDays: [] // Will be loaded from localStorage
 };
+
+// Load extra days from localStorage
+function loadExtraDays() {
+    const savedExtraDays = localStorage.getItem('extraDays');
+    if (savedExtraDays) {
+        scheduleData.extraDays = JSON.parse(savedExtraDays).map(day => ({
+            ...day,
+            date: new Date(day.date)
+        }));
+    }
+}
+
+// Save extra days to localStorage
+function saveExtraDays() {
+    localStorage.setItem('extraDays', JSON.stringify(scheduleData.extraDays));
+}
 
 // Function to calculate the current week in the 4-week cycle
 function getCurrentWeek() {
@@ -32,13 +49,6 @@ function getCurrentWeek() {
     const diffInDays = Math.floor(diffInTime / (1000 * 60 * 60 * 24));
     const weeksSinceStart = Math.floor(diffInDays / 7);
     const currentWeek = weeksSinceStart % 4; // Modulo 4 to get current week in the cycle
-
-    // Debugging information
-    console.log("Start Date:", startDate);
-    console.log("Today:", today);
-    console.log("Days since start:", diffInDays);
-    console.log("Weeks since start:", weeksSinceStart);
-    console.log("Current Week (0-based):", currentWeek);
 
     return currentWeek;
 }
@@ -76,6 +86,29 @@ function displayWeekSchedule(weekIndex, weekElementId, weekName) {
                 <td>${schedule.mohamed || "No shift"}</td>
                 <td>${schedule.emma || "No shift"}</td>
             </tr>`;
+        }
+
+        // Add extra work days for this week
+        const startDate = new Date("2024-01-01T00:00:00+02:00");
+        const weekStart = new Date(startDate);
+        weekStart.setDate(weekStart.getDate() + weekIndex * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const extraDaysThisWeek = scheduleData.extraDays.filter(day => 
+            day.date >= weekStart && day.date <= weekEnd
+        );
+
+        if (extraDaysThisWeek.length > 0) {
+            table += `<tr><td colspan="3"><strong>Extra Work Days:</strong></td></tr>`;
+            extraDaysThisWeek.forEach(day => {
+                const formattedDate = day.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                table += `<tr>
+                    <td>${formattedDate}</td>
+                    <td>${day.shift}</td>
+                    <td>-</td>
+                </tr>`;
+            });
         }
 
         table += `</table>`;
@@ -157,15 +190,98 @@ function checkData() {
     }
 }
 
+// New function to add an extra work day
+function addExtraWorkDay(date, shift) {
+    const extraDay = {
+        date: new Date(date),
+        shift: shift
+    };
+    scheduleData.extraDays.push(extraDay);
+    scheduleData.extraDays.sort((a, b) => a.date - b.date);
+    saveExtraDays(); // Save to localStorage
+    updateExtraWorkDaysDisplay();
+    displayFullSchedule(); // Refresh the main schedule display
+}
+
+function updateExtraWorkDaysDisplay() {
+    const extraWorkDaysElement = document.getElementById('extraWorkDays');
+    extraWorkDaysElement.innerHTML = '<h3>Extra Work Days</h3>';
+
+    if (scheduleData.extraDays.length === 0) {
+        extraWorkDaysElement.innerHTML += '<p>No extra work days scheduled.</p>';
+        return;
+    }
+
+    let table = `<table>
+        <tr>
+            <th>Date</th>
+            <th>Shift</th>
+            <th>Action</th>
+        </tr>`;
+
+    scheduleData.extraDays.forEach((day, index) => {
+        const formattedDate = day.date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        table += `<tr>
+            <td>${formattedDate}</td>
+            <td>${day.shift}</td>
+            <td><button onclick="deleteExtraWorkDay(${index})">Delete</button></td>
+        </tr>`;
+    });
+
+    table += '</table>';
+    extraWorkDaysElement.innerHTML += table;
+}
+
+function deleteExtraWorkDay(index) {
+    // Remove the selected day from the schedule
+    scheduleData.extraDays.splice(index, 1);
+    
+    // Save updated schedule to localStorage
+    saveExtraDays();
+    
+    // Update the display
+    updateExtraWorkDaysDisplay();
+    displayFullSchedule(); // Refresh the main schedule display
+}
+
+
+// Function to handle form submission for adding extra work days
+function handleExtraWorkDaySubmit(event) {
+    event.preventDefault();
+    const dateInput = document.getElementById('extraWorkDate');
+    const shiftInput = document.getElementById('extraWorkShift');
+
+    const date = dateInput.value;
+    const shift = shiftInput.value;
+
+    if (date && shift) {
+        addExtraWorkDay(date, shift);
+        dateInput.value = '';
+        shiftInput.value = '';
+    }
+}
+
+// Function to remove past extra work days
+function removePastExtraDays() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of the day
+    scheduleData.extraDays = scheduleData.extraDays.filter(day => day.date >= today);
+    saveExtraDays();
+}
+
 // Initialize schedule display on page load
 window.onload = function() {
+    loadExtraDays(); // Load extra days from localStorage
+    removePastExtraDays(); // Remove past extra days
     displayFullSchedule();
     displayCalendarWeek();
     checkWorkThisWeek();
+    updateExtraWorkDaysDisplay();
     
     // Add event listeners for buttons
     document.getElementById("toggleButton").addEventListener("click", toggleUpcomingWeeks);
     document.getElementById("checkDataButton").addEventListener("click", checkData);
+    document.getElementById("extraWorkForm").addEventListener("submit", handleExtraWorkDaySubmit);
     
     // Initialize dataCheck container
     document.getElementById('dataCheck').style.display = 'none';
@@ -174,9 +290,11 @@ window.onload = function() {
     setInterval(() => {
         const now = new Date();
         if (now.getHours() === 0 && now.getMinutes() === 0) {
+            removePastExtraDays();
             displayFullSchedule();
             displayCalendarWeek();
             checkWorkThisWeek();
+            updateExtraWorkDaysDisplay();
         }
     }, 60000); // Check every minute
 };
