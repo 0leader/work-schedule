@@ -1,56 +1,106 @@
+// Import the required Firebase Firestore functions
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyA-jZ0sybleNZlTlYTPWPCm6nIiY8n6NbE",
+  authDomain: "work-schedule-4c740.firebaseapp.com",
+  projectId: "work-schedule-4c740",
+  storageBucket: "work-schedule-4c740.appspot.com",
+  messagingSenderId: "1098925804841",
+  appId: "1:1098925804841:web:3c228f038c0890eb2d7b38"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // Schedule data (Mohamed's and Emma's shifts for 4 weeks)
 const scheduleData = {
     weeks: [
-        // Week 1
         {
             Sunday: { mohamed: "09:45-17:00", emma: "12:00-15:00" }
         },
-        // Week 2
         {
             Saturday: { mohamed: "11:15-17:15", emma: "09:45-15:00" },
             Sunday: { mohamed: "12:00-17:15", emma: "09:45-16:00" }
         },
-        // Week 3
         {
             holiday: true
         },
-        // Week 4
         {
             Saturday: { mohamed: "11:15-17:15", emma: "09:45-15:00" },
             Sunday: { mohamed: "12:00-15:00", emma: "09:45-17:15" }
         }
     ],
-    extraDays: [] // Will be loaded from localStorage
+    extraDays: [] // Will be loaded from Firestore
 };
 
-// Load extra days from localStorage
-function loadExtraDays() {
-    const savedExtraDays = localStorage.getItem('extraDays');
-    if (savedExtraDays) {
-        scheduleData.extraDays = JSON.parse(savedExtraDays).map(day => ({
-            ...day,
-            date: new Date(day.date)
-        }));
+// Load extra days from Firestore
+async function loadExtraWorkDaysFromFirebase() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "extraWorkDays"));
+        scheduleData.extraDays = []; // Clear current data
+        querySnapshot.forEach((doc) => {
+            scheduleData.extraDays.push({
+                id: doc.id,
+                date: new Date(doc.data().date),
+                shift: doc.data().shift
+            });
+        });
+        updateExtraWorkDaysDisplay(); // Update the UI with new data
+    } catch (error) {
+        console.error("Error loading extra workdays: ", error);
+        displayErrorMessage("Failed to load extra work days. Please try again later.");
     }
 }
 
-// Save extra days to localStorage
-function saveExtraDays() {
-    localStorage.setItem('extraDays', JSON.stringify(scheduleData.extraDays));
+// Function to save extra workdays to Firestore
+async function addExtraWorkDay(date, shift) {
+    try {
+        await addDoc(collection(db, "extraWorkDays"), {
+            date: date,
+            shift: shift
+        });
+        console.log("Extra workday added to Firebase!");
+        loadExtraWorkDaysFromFirebase(); // Refresh the display after adding
+    } catch (e) {
+        console.error("Error adding workday: ", e);
+        displayErrorMessage("Failed to add extra work day. Please try again.");
+    }
+}
+
+// Function to delete extra workday from Firestore
+async function deleteExtraWorkDay(id) {
+    try {
+        await deleteDoc(doc(db, "extraWorkDays", id));
+        console.log("Extra workday deleted from Firebase!");
+        loadExtraWorkDaysFromFirebase(); // Refresh the display after deleting
+    } catch (e) {
+        console.error("Error deleting workday: ", e);
+        displayErrorMessage("Failed to delete extra work day. Please try again.");
+    }
+}
+
+// Function to display error messages
+function displayErrorMessage(message) {
+    const errorElement = document.getElementById('errorMessages');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+    setTimeout(() => {
+        errorElement.style.display = 'none';
+    }, 5000);
 }
 
 // Function to calculate the current week in the 4-week cycle
 function getCurrentWeek() {
-    const startDate = new Date("2024-01-01T00:00:00+02:00"); // Start date (Week 1) in CEST
+    const startDate = new Date("2024-01-01T00:00:00+02:00");
     const today = new Date();
-    
-    // Calculate the difference in days
     const diffInTime = today - startDate;
     const diffInDays = Math.floor(diffInTime / (1000 * 60 * 60 * 24));
     const weeksSinceStart = Math.floor(diffInDays / 7);
-    const currentWeek = weeksSinceStart % 4; // Modulo 4 to get current week in the cycle
-
-    return currentWeek;
+    return weeksSinceStart % 4;
 }
 
 // Function to get the current calendar week number (ISO 8601 standard)
@@ -58,16 +108,13 @@ function getCurrentCalendarWeek() {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    
-    return weekNumber;
+    return Math.ceil((days + startOfYear.getDay() + 1) / 7);
 }
 
 // Function to display the schedule for a specific week
 function displayWeekSchedule(weekIndex, weekElementId, weekName) {
     const weekElement = document.getElementById(weekElementId);
     weekElement.innerHTML = `<h2>${weekName}</h2>`;
-
     const week = scheduleData.weeks[weekIndex];
     
     if (week.holiday) {
@@ -88,7 +135,6 @@ function displayWeekSchedule(weekIndex, weekElementId, weekName) {
             </tr>`;
         }
 
-        // Add extra work days for this week
         const startDate = new Date("2024-01-01T00:00:00+02:00");
         const weekStart = new Date(startDate);
         weekStart.setDate(weekStart.getDate() + weekIndex * 7);
@@ -120,10 +166,7 @@ function displayWeekSchedule(weekIndex, weekElementId, weekName) {
 function displayFullSchedule() {
     const currentWeekIndex = getCurrentWeek();
 
-    // Show the current week
     displayWeekSchedule(currentWeekIndex, "currentWeek", `Week ${currentWeekIndex + 1} (Current Week)`);
-
-    // Show the next 3 weeks (using modulo to loop back to week 1 after week 4)
     displayWeekSchedule((currentWeekIndex + 1) % 4, "nextWeek1", `Week ${((currentWeekIndex + 1) % 4) + 1}`);
     displayWeekSchedule((currentWeekIndex + 2) % 4, "nextWeek2", `Week ${((currentWeekIndex + 2) % 4) + 1}`);
     displayWeekSchedule((currentWeekIndex + 3) % 4, "nextWeek3", `Week ${((currentWeekIndex + 3) % 4) + 1}`);
@@ -190,19 +233,7 @@ function checkData() {
     }
 }
 
-// New function to add an extra work day
-function addExtraWorkDay(date, shift) {
-    const extraDay = {
-        date: new Date(date),
-        shift: shift
-    };
-    scheduleData.extraDays.push(extraDay);
-    scheduleData.extraDays.sort((a, b) => a.date - b.date);
-    saveExtraDays(); // Save to localStorage
-    updateExtraWorkDaysDisplay();
-    displayFullSchedule(); // Refresh the main schedule display
-}
-
+// Function to display extra work days
 function updateExtraWorkDaysDisplay() {
     const extraWorkDaysElement = document.getElementById('extraWorkDays');
     extraWorkDaysElement.innerHTML = '<h3>Extra Work Days</h3>';
@@ -219,12 +250,12 @@ function updateExtraWorkDaysDisplay() {
             <th>Action</th>
         </tr>`;
 
-    scheduleData.extraDays.forEach((day, index) => {
+    scheduleData.extraDays.forEach((day) => {
         const formattedDate = day.date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         table += `<tr>
             <td>${formattedDate}</td>
             <td>${day.shift}</td>
-            <td><button onclick="deleteExtraWorkDay(${index})">Delete</button></td>
+            <td><button onclick="deleteExtraWorkDay('${day.id}')">Delete</button></td>
         </tr>`;
     });
 
@@ -232,69 +263,31 @@ function updateExtraWorkDaysDisplay() {
     extraWorkDaysElement.innerHTML += table;
 }
 
-function deleteExtraWorkDay(index) {
-    // Remove the selected day from the schedule
-    scheduleData.extraDays.splice(index, 1);
-    
-    // Save updated schedule to localStorage
-    saveExtraDays();
-    
-    // Update the display
-    updateExtraWorkDaysDisplay();
-    displayFullSchedule(); // Refresh the main schedule display
-}
-
-
-// Function to handle form submission for adding extra work days
-function handleExtraWorkDaySubmit(event) {
+// Handle form submission for adding extra work days
+document.getElementById('extraWorkForm').addEventListener('submit', function (event) {
     event.preventDefault();
-    const dateInput = document.getElementById('extraWorkDate');
-    const shiftInput = document.getElementById('extraWorkShift');
+    const dateInput = document.getElementById('extraWorkDate').value;
+    const shiftInput = document.getElementById('extraWorkShift').value;
 
-    const date = dateInput.value;
-    const shift = shiftInput.value;
-
-    if (date && shift) {
-        addExtraWorkDay(date, shift);
-        dateInput.value = '';
-        shiftInput.value = '';
+    if (dateInput && shiftInput) {
+        addExtraWorkDay(dateInput, shiftInput); // Add the day to Firebase
+        document.getElementById('extraWorkDate').value = '';
+        document.getElementById('extraWorkShift').value = '';
+    } else {
+        displayErrorMessage("Please enter both date and shift.");
     }
-}
-
-// Function to remove past extra work days
-function removePastExtraDays() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to beginning of the day
-    scheduleData.extraDays = scheduleData.extraDays.filter(day => day.date >= today);
-    saveExtraDays();
-}
+});
 
 // Initialize schedule display on page load
 window.onload = function() {
-    loadExtraDays(); // Load extra days from localStorage
-    removePastExtraDays(); // Remove past extra days
-    displayFullSchedule();
+    loadExtraWorkDaysFromFirebase(); // Load extra days from Firebase
+    displayFullSchedule(); 
     displayCalendarWeek();
     checkWorkThisWeek();
-    updateExtraWorkDaysDisplay();
     
-    // Add event listeners for buttons
     document.getElementById("toggleButton").addEventListener("click", toggleUpcomingWeeks);
     document.getElementById("checkDataButton").addEventListener("click", checkData);
-    document.getElementById("extraWorkForm").addEventListener("submit", handleExtraWorkDaySubmit);
-    
-    // Initialize dataCheck container
-    document.getElementById('dataCheck').style.display = 'none';
-
-    // Update the display every day at midnight
-    setInterval(() => {
-        const now = new Date();
-        if (now.getHours() === 0 && now.getMinutes() === 0) {
-            removePastExtraDays();
-            displayFullSchedule();
-            displayCalendarWeek();
-            checkWorkThisWeek();
-            updateExtraWorkDaysDisplay();
-        }
-    }, 60000); // Check every minute
 };
+
+// Make functions globally accessible
+window.deleteExtraWorkDay = deleteExtraWorkDay;
