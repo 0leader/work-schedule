@@ -9,12 +9,15 @@
 <body>
     <div class="container">
         <h1>Work Schedule for Mohamed</h1>
+        
+        <div id="errorMessages" style="display: none; color: red; margin-bottom: 10px;"></div>
 
         <div id="workStatus"></div>
 
         <div id="currentWeek"></div>
 
         <button id="toggleButton">Show Upcoming Weeks</button>
+
         <button id="checkDataButton">Check Data</button>
 
         <div id="upcomingWeeks" style="display: none;">
@@ -33,7 +36,7 @@
                 <label for="extraWorkDate">Date:</label>
                 <input type="date" id="extraWorkDate" required>
                 <label for="extraWorkShift">Shift:</label>
-                <input type="text" id="extraWorkShift" placeholder="e.g., 09:00-17:00" required>
+                <input type="text" id="extraWorkShift" required>
                 <button type="submit">Add Extra Work Day</button>
             </form>
         </div>
@@ -41,6 +44,6 @@
         <div id="extraWorkDays"></div>
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
