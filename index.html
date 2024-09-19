@@ -9,24 +9,38 @@
 <body>
     <div class="container">
         <h1>Work Schedule for Mohamed</h1>
-        
+
         <div id="workStatus"></div>
-        
+
         <div id="currentWeek"></div>
-        
+
         <button id="toggleButton">Show Upcoming Weeks</button>
         <button id="checkDataButton">Check Data</button>
-        
+
         <div id="upcomingWeeks" style="display: none;">
             <div id="nextWeek1" class="week-section"></div>
             <div id="nextWeek2" class="week-section"></div>
             <div id="nextWeek3" class="week-section"></div>
         </div>
-        
+
         <div id="calendarWeek"></div>
-        
+
         <div id="dataCheck"></div>
+
+        <div id="addExtraWorkDay">
+            <h3>Add Extra Work Day</h3>
+            <form id="extraWorkForm">
+                <label for="extraWorkDate">Date:</label>
+                <input type="date" id="extraWorkDate" required>
+                <label for="extraWorkShift">Shift:</label>
+                <input type="text" id="extraWorkShift" placeholder="e.g., 09:00-17:00" required>
+                <button type="submit">Add Extra Work Day</button>
+            </form>
+        </div>
+
+        <div id="extraWorkDays"></div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
