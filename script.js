@@ -1,6 +1,6 @@
 // Import the required Firebase Firestore functions
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -14,7 +14,18 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// Function to create a Firestore instance with the API key
+function getDbWithApiKey() {
+  return getFirestore(app, {
+    customHeaders: {
+      'api_key': '1be1052a-7523-4c29-84f2-058fab61946e'
+    }
+  });
+}
+
+// Use this function to get the Firestore instance
+const db = getDbWithApiKey();
 
 // Schedule data (Mohamed's and Emma's shifts for 4 weeks)
 const scheduleData = {
