@@ -101,3 +101,11 @@ button:hover {
 #extraWorkDays {
     margin-top: 20px;
 }
+
+#errorMessages {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
