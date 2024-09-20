@@ -1,4 +1,4 @@
-// Import the required Firebase Firestore functions
+// Import the required Firebase functions
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
@@ -14,18 +14,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Function to create a Firestore instance with the API key
-function getDbWithApiKey() {
-  return getFirestore(app, {
-    customHeaders: {
-      'api_key': '1be1052a-7523-4c29-84f2-058fab61946e'
-    }
-  });
-}
-
-// Use this function to get the Firestore instance
-const db = getDbWithApiKey();
+const db = getFirestore(app);
 
 // Schedule data (Mohamed's and Emma's shifts for 4 weeks)
 const scheduleData = {
@@ -48,18 +37,20 @@ const scheduleData = {
     extraDays: [] // Will be loaded from Firestore
 };
 
-// Load extra days from Firestore
 async function loadExtraWorkDaysFromFirebase() {
     try {
         const querySnapshot = await getDocs(collection(db, "extraWorkDays"));
         scheduleData.extraDays = []; // Clear current data
         querySnapshot.forEach((doc) => {
+            const data = doc.data();
             scheduleData.extraDays.push({
                 id: doc.id,
-                date: new Date(doc.data().date),
-                shift: doc.data().shift
+                date: new Date(data.date + 'T00:00:00'), // Ensure consistent date parsing
+                shift: data.shift
             });
         });
+        // Sort the extra days after loading
+        scheduleData.extraDays.sort((a, b) => a.date.getTime() - b.date.getTime());
         updateExtraWorkDaysDisplay(); // Update the UI with new data
     } catch (error) {
         console.error("Error loading extra workdays: ", error);
@@ -67,11 +58,13 @@ async function loadExtraWorkDaysFromFirebase() {
     }
 }
 
+
 // Function to save extra workdays to Firestore
 async function addExtraWorkDay(date, shift) {
     try {
+        const formattedDate = new Date(date + 'T00:00:00').toISOString().split('T')[0];
         await addDoc(collection(db, "extraWorkDays"), {
-            date: date,
+            date: formattedDate,
             shift: shift
         });
         console.log("Extra workday added to Firebase!");
@@ -244,6 +237,7 @@ function checkData() {
     }
 }
 
+
 // Function to display extra work days
 function updateExtraWorkDaysDisplay() {
     const extraWorkDaysElement = document.getElementById('extraWorkDays');
@@ -274,6 +268,22 @@ function updateExtraWorkDaysDisplay() {
     extraWorkDaysElement.innerHTML += table;
 }
 
+// Initialize schedule display on page load
+window.onload = async function() {
+    try {
+        await loadExtraWorkDaysFromFirebase(); // Load data
+        displayFullSchedule(); 
+        displayCalendarWeek();
+        checkWorkThisWeek();
+        
+        document.getElementById("toggleButton").addEventListener("click", toggleUpcomingWeeks);
+        document.getElementById("checkDataButton").addEventListener("click", checkData);
+    } catch (error) {
+        console.error("Error during initialization:", error);
+        displayErrorMessage("Failed to initialize the application. Please try again later.");
+    }
+};
+
 // Handle form submission for adding extra work days
 document.getElementById('extraWorkForm').addEventListener('submit', function (event) {
     event.preventDefault();
@@ -288,17 +298,6 @@ document.getElementById('extraWorkForm').addEventListener('submit', function (ev
         displayErrorMessage("Please enter both date and shift.");
     }
 });
-
-// Initialize schedule display on page load
-window.onload = function() {
-    loadExtraWorkDaysFromFirebase(); // Load extra days from Firebase
-    displayFullSchedule(); 
-    displayCalendarWeek();
-    checkWorkThisWeek();
-    
-    document.getElementById("toggleButton").addEventListener("click", toggleUpcomingWeeks);
-    document.getElementById("checkDataButton").addEventListener("click", checkData);
-};
 
 // Make functions globally accessible
 window.deleteExtraWorkDay = deleteExtraWorkDay;
